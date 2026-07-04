@@ -312,8 +312,13 @@ extension ChromeRenderer {
         let screenScale = self.screenScale(for: info)
         let sizing = info.metadata.images?.sizing
         let stand = info.metadata.images?.stand
-        let nominalWidth = chromeSize.width - (sizing?.leftWidth ?? 0) - (sizing?.rightWidth ?? 0)
-        let nominalHeight = chromeSize.height - (stand?.height ?? 0) - (sizing?.topHeight ?? 0) - (sizing?.bottomHeight ?? 0)
+        let leftWidth = CGFloat(sizing?.leftWidth ?? 0)
+        let rightWidth = CGFloat(sizing?.rightWidth ?? 0)
+        let topHeight = CGFloat(sizing?.topHeight ?? 0)
+        let bottomHeight = CGFloat(sizing?.bottomHeight ?? 0)
+        let standHeight = CGFloat(stand?.height ?? 0)
+        let nominalWidth = chromeSize.width - leftWidth - rightWidth
+        let nominalHeight = chromeSize.height - standHeight - topHeight - bottomHeight
         guard let pixelSize = try? displayPixelSize(for: info) else { return screenScale }
         let screenWidth = pixelSize.width
         let screenHeight = pixelSize.height
@@ -342,7 +347,10 @@ extension ChromeRenderer {
 
         let sizing = info.metadata.images?.sizing
         let stand = info.metadata.images?.stand
-        let slotHeight = chromeSize.height - (stand?.height ?? 0) - (sizing?.topHeight ?? 0) - (sizing?.bottomHeight ?? 0)
+        let topHeight = CGFloat(sizing?.topHeight ?? 0)
+        let bottomHeight = CGFloat(sizing?.bottomHeight ?? 0)
+        let standHeight = CGFloat(stand?.height ?? 0)
+        let slotHeight = chromeSize.height - standHeight - topHeight - bottomHeight
         let maskSize = framebufferMaskSize(for: info)
         let displaySize = maskSize != .zero ? maskSize : screenSize(for: info, chromeSize: chromeSize, screenScale: screenScale(for: info))
 
