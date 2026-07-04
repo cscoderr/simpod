@@ -1,0 +1,93 @@
+{
+  "skill": "simpod",
+  "description": "Behavior checks an agent loaded with the simpod skill should pass. Each case lists the user prompt, the key actions/points a correct response must contain (rubric), and the SKILL.md section that grounds it. 'must_not' flags common wrong answers the skill is meant to prevent.",
+  "evals": [
+    {
+      "id": "tap-then-background",
+      "prompt": "I'm running an iPhone 16 Pro simulator. Tap the center of the screen, then send the app to the background.",
+      "rubric": [
+        "Verifies a simulator is booted before issuing commands (e.g. xcrun simctl list devices booted, or simpod --list)",
+        "Taps with normalized coords: simpod tap 0.5 0.5",
+        "Backgrounds with simpod button home",
+        "Targets the device by name/UDID with -d when ambiguous"
+      ],
+      "must_not": ["pixel coordinates", "synthesizing the tap from gesture begin/end calls"],
+      "reference": "SKILL.md (Interact)"
+    },
+    {
+      "id": "stream-preview-handoff",
+      "prompt": "Show me my simulator right here — don't make me open another window.",
+      "rubric": [
+        "Starts the server with simpod --detach -q and parses the JSON",
+        "Surfaces the url (http://127.0.0.1:5210) plainly as a manual fallback",
+        "Probes the session's tools for a preview/URL-opener (preview_start, mcp__Claude_Preview__preview_start, browser_open, ...) and hands off the url if present",
+        "If no such tool exists, says so and tells the user to open the URL themselves"
+      ],
+      "must_not": ["inventing a host-specific preview tool that isn't in the session", "building or installing the app"],
+      "reference": "SKILL.md (Show the stream in your agent's preview)"
+    },
+    {
+      "id": "ax-driven-tap",
+      "prompt": "There's a Submit button somewhere on screen. Tap it without me telling you where it is.",
+      "rubric": [
+        "Reads the accessibility tree with simpod describe",
+        "Finds the node whose label/title matches 'Submit' (case-insensitive)",
+        "Takes the node frame center and normalizes it against the device screen size, then simpod tap <nx> <ny>",
+        "If no match is found, reports 'target not found' rather than guessing"
+      ],
+      "must_not": ["tapping a guessed coordinate when the AX lookup returns nothing", "pixel coordinates"],
+      "reference": "SKILL.md (Inspect the UI, Interact)"
+    },
+    {
+      "id": "rotate-and-appearance",
+      "prompt": "Switch the simulator to dark mode and rotate it to landscape (rotated left).",
+      "rubric": [
+        "Sets appearance with simpod appearance dark",
+        "Rotates with simpod rotate landscape_left",
+        "Uses the documented orientation vocabulary (portrait | portrait_upside_down | landscape_left | landscape_right)"
+      ],
+      "must_not": ["inventing orientation names like 'landscape' or 'horizontal'"],
+      "reference": "SKILL.md (Interact, Device state and environment)"
+    },
+    {
+      "id": "deeplink-and-location",
+      "prompt": "Open the deep link myapp://checkout in the simulator and mock the GPS location to Apple Park (37.3349, -122.0090).",
+      "rubric": [
+        "Opens the link with simpod open-url myapp://checkout",
+        "Mocks GPS with simpod location 37.3349 -122.0090 (latitude then longitude)"
+      ],
+      "must_not": ["using xcrun simctl openurl when the skill exposes simpod open-url"],
+      "reference": "SKILL.md (Device state and environment)"
+    },
+    {
+      "id": "status-bar-override",
+      "prompt": "Make the status bar show 9:41 and 80% battery for a screenshot, then put it back to normal afterwards.",
+      "rubric": [
+        "Overrides with simpod status-bar --battery 80 --time 9:41",
+        "Clears afterwards with simpod status-bar --clear"
+      ],
+      "reference": "SKILL.md (Device state and environment)"
+    },
+    {
+      "id": "detached-cleanup",
+      "prompt": "I started a simpod stream earlier for a quick check and I'm done now. Clean it up.",
+      "rubric": [
+        "Stops the detached server/helpers with simpod --kill (optionally -d <UDID> for one device)",
+        "Explains that a detached server is stopped with --kill, not Ctrl+C"
+      ],
+      "must_not": ["telling the user to Ctrl+C a detached/background server"],
+      "reference": "SKILL.md (Start the server, Anti-patterns)"
+    },
+    {
+      "id": "prereqs-not-booted",
+      "prompt": "Tap the login button on my simulator.",
+      "rubric": [
+        "Checks prerequisites first: macOS, xcrun, and a booted simulator (xcrun simctl list devices booted)",
+        "If none is booted, boots one (simpod boots the first available, or xcrun simctl boot <UDID>) rather than failing silently",
+        "Prefers locating the button via simpod describe over guessing coordinates"
+      ],
+      "must_not": ["assuming a simulator is booted without checking", "pixel coordinates"],
+      "reference": "SKILL.md (Prerequisites, Inspect the UI)"
+    }
+  ]
+}

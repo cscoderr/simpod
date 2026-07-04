@@ -1,0 +1,3 @@
+# The raw helper binary is a local build artifact; published installs get it
+# from the embedded assets payload (lib/src/gen/embedded_assets.g.dart).
+lib/bin/

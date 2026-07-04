@@ -1,0 +1,46 @@
+name: simpod_client
+description:
+  The Simpod web dashboard - a Flutter web app that renders the live simulator
+  stream, sends input over a WebSocket, and drives device controls via the CLI.
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+  flutter: ^3.41.0
+resolution: workspace
+
+dependencies:
+  cupertino_icons: ^1.0.9
+  equatable: ^2.0.8
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.3.2
+  flutter_svg: ^2.3.0
+  flutter_web_plugins:
+    sdk: flutter
+  go_router: ^17.2.3
+  google_fonts: ^8.1.0
+  http: ^1.6.0
+  intl: ^0.20.2
+  rxdart: ^0.28.0
+  simpod_core: 
+    path: ../simpod_core
+  web: ^1.1.1
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.5
+
+flutter:
+  generate: true
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+flutter_gen:
+  integrations:
+    flutter_svg: true

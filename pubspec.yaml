@@ -1,0 +1,13 @@
+name: simpod_workspace
+publish_to: none
+
+environment: 
+  sdk: ^3.12.0
+
+dependencies: 
+  http: ^1.6.0
+
+workspace:
+  - packages/simpod
+  - packages/simpod_client
+  - packages/simpod_core

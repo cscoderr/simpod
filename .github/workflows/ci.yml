@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dart:
+    name: Dart analyze + test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve workspace dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: dart analyze packages/simpod_cli packages/simpod_core
+      - name: Test simpod_cli
+        run: dart test
+        working-directory: packages/simpod_cli
+      - name: Test simpod_core
+        run: dart test
+        working-directory: packages/simpod_core
+
+  swift:
+    name: Swift build (native helper)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build helper
+        run: swift build --package-path packages/native
