@@ -18,10 +18,10 @@ jobs:
       - name: Resolve workspace dependencies
         run: flutter pub get
       - name: Analyze
-        run: dart analyze packages/simpod_cli packages/simpod_core
-      - name: Test simpod_cli
+        run: dart analyze packages/simpod packages/simpod_core
+      - name: Test simpod
         run: dart test
-        working-directory: packages/simpod_cli
+        working-directory: packages/simpod
       - name: Test simpod_core
         run: dart test
         working-directory: packages/simpod_core
