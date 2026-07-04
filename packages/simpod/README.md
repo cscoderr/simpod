@@ -1,41 +1,16 @@
-# Simpod
 
-Stream a booted **iOS Simulator** to the browser and drive it — from your IDE, an
-AI agent (Claude Code, Cursor, Codex), or the `simpod` CLI. Locally, over your
-LAN, or hosted on a remote Mac and tunneled anywhere.
+<p align="center">
+  <h1 align="center">Simpod</h1>
 
-```sh
-simpod
-# → Preview at http://127.0.0.1:5210
-```
+  <p align="center">
+    Simpod streams a booted <b>iOS Simulator</b> to the browser and drive it — from your IDE, an
+AI agent (Claude Code, Cursor, Codex), or the <code>simpod</code> CLI.
+  </p>
+</p>
 
-Simpod spawns a small native Swift helper that captures the simulator's
-framebuffer (VideoToolbox H.264 / MJPEG), injects HID input, and reads the
-accessibility tree. A Dart CLI orchestrates the helpers and serves a Flutter web
-dashboard on top. It works with any booted simulator — no Xcode plugin, no
-in-app instrumentation.
+<hr/>
 
-> **macOS only**, Apple Silicon. It shells out to `xcrun simctl` and uses private
-> CoreSimulator APIs. There is no Android support.
-
-## Features
-
-- Low-latency 60 FPS stream in the browser (H.264/AVCC with an MJPEG fallback).
-- Full control: tap, swipe, pinch, type, hardware buttons, rotation.
-- Accessibility inspection — read the live AX tree to find elements by label, and
-  an in-browser overlay that highlights element frames.
-- Device controls: light/dark appearance, mock GPS, status-bar overrides, deep
-  links, privacy permissions.
-- Live simulator system logs forwarded to the browser (and to agents).
-- Device bezels/chrome rendered from CoreSimulator assets.
-- Loopback is auto-trusted; LAN devices pair with a printed QR / token.
-- An **Agent Skill** that teaches AI agents the stable simpod workflow.
-
-## Why?
-
-Hosted simulators are hard to iterate on. Simpod lets you run the streaming/control
-stack **locally** for fast iteration, then tunnel the served URL to share a
-simulator remotely — users interact with it as if it were on their own machine.
+![Codex Screenshot](../../assets/codex-screenshot.png)
 
 ## Install
 
@@ -50,6 +25,31 @@ simpod
 The package embeds the native helper and the web dashboard, so no extra
 downloads are needed. Alternatively, build the self-contained `build/simpod`
 binary with `./build.sh`, or run from source (below).
+
+```sh
+simpod
+# → Preview at http://127.0.0.1:5210
+```
+
+Simpod spawns a small native Swift helper that captures the simulator's
+framebuffer (VideoToolbox H.264 / MJPEG), injects HID input, and reads the
+accessibility tree. A Dart CLI orchestrates the helpers and serves a Flutter web
+dashboard on top. It works with any booted simulator — no Xcode plugin, no
+in-app instrumentation.
+
+## Features
+
+- Low-latency 60 FPS stream in the browser (H.264/AVCC with an MJPEG fallback).
+- Full control: tap, swipe, pinch, type, hardware buttons, rotation.
+- Accessibility inspection — read the live AX tree to find elements by label, and
+  an in-browser overlay that highlights element frames.
+- Device controls: light/dark appearance, mock GPS, status-bar overrides, deep
+  links, privacy permissions.
+- Live simulator system logs forwarded to the browser (and to agents).
+- Device bezels/chrome rendered from CoreSimulator assets.
+- Loopback is auto-trusted; LAN devices pair with a printed QR / token.
+- An **Agent Skill** that teaches AI agents the stable simpod workflow.
+
 
 ## CLI
 

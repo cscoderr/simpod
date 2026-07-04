@@ -2,7 +2,7 @@ name: simpod
 description:
   Stream and remotely control booted iOS simulators from the command line or a
   local web preview UI.
-version: 0.0.2
+version: 0.0.3
 repository: https://github.com/cscoderr/simpod
 
 environment:

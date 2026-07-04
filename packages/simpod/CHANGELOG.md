@@ -1,3 +1,7 @@
+## 0.0.3
+
+- Fix client fall back to MJPEG and persist codec choice when H.264 fails bug
+
 ## 0.0.2
 
 - Format json outputs for quiet flag
