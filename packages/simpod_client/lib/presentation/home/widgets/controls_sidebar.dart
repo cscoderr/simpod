@@ -29,7 +29,6 @@ class _ControlsSidebarState extends ConsumerState<ControlsSidebar> {
   final _bundleIdController = TextEditingController();
 
   double _batteryLevel = 100;
-  String _permissionService = 'photos';
   late StreamSettings _streamSettings;
 
   bool _contrastOn = false;
@@ -42,22 +41,6 @@ class _ControlsSidebarState extends ConsumerState<ControlsSidebar> {
     ('New York', 40.7128, -74.0060),
     ('London', 51.5074, -0.1278),
     ('Tokyo', 35.6762, 139.6503),
-  ];
-
-  static const _permissionServices = <(String, String)>[
-    ('photos', 'Photos'),
-    ('photos-add', 'Photos (add only)'),
-    ('camera', 'Camera'),
-    ('microphone', 'Microphone'),
-    ('location', 'Location'),
-    ('location-always', 'Location (always)'),
-    ('contacts', 'Contacts'),
-    ('calendar', 'Calendar'),
-    ('reminders', 'Reminders'),
-    ('media-library', 'Media library'),
-    ('motion', 'Motion'),
-    ('siri', 'Siri'),
-    ('all', 'All services'),
   ];
 
   @override
@@ -575,86 +558,6 @@ class _ControlsSidebarState extends ConsumerState<ControlsSidebar> {
     _showToast(result.message, isError: !result.success);
   }
 
-  Widget _buildPermissionsContent() {
-    final colorScheme = context.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SettingRow(
-          icon: CupertinoIcons.checkmark_shield,
-          label: 'Service',
-          trailing: _Dropdown<String>(
-            width: 150,
-            value: _permissionService,
-            items: [
-              for (final (value, label) in _permissionServices)
-                (value: value, label: label),
-            ],
-            onChanged: (value) => setState(() => _permissionService = value),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        SimpodCustomTextField(
-          controller: _bundleIdController,
-          placeholder: 'com.example.app',
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          spacing: AppSpacing.sm,
-          children: [
-            Expanded(
-              child: _RowButton(
-                label: 'Grant',
-                primary: true,
-                expand: true,
-                onTap: () => _applyPermission('grant'),
-              ),
-            ),
-            Expanded(
-              child: _RowButton(
-                label: 'Revoke',
-                expand: true,
-                onTap: () => _applyPermission('revoke'),
-              ),
-            ),
-            Expanded(
-              child: _RowButton(
-                label: 'Reset',
-                expand: true,
-                onTap: () => _applyPermission('reset'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Grant and revoke require a bundle id.',
-          style: GoogleFonts.inter(
-            fontSize: 9.5,
-            height: 1.4,
-            color: colorScheme.onSurface.withValues(alpha: 0.4),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _applyPermission(String action) async {
-    final bundleId = _bundleIdController.text.trim();
-    if (action != 'reset' && bundleId.isEmpty) {
-      _showToast('Enter the app bundle id to $action', isError: true);
-      return;
-    }
-    final result = await _notifier.setPermission(
-      action: action,
-      service: _permissionService,
-      bundleId: bundleId.isEmpty ? null : bundleId,
-    );
-    if (!mounted) return;
-    _showToast(result.message, isError: !result.success);
-  }
-
   Widget _buildStatusBarContent() {
     final colorScheme = context.colorScheme;
 
@@ -1110,41 +1013,6 @@ class _InsetPanel extends StatelessWidget {
         borderRadius: AppRadius.allSm,
       ),
       child: child,
-    );
-  }
-}
-
-class _LiveBadge extends StatelessWidget {
-  const _LiveBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final live = AppColorsLight.statusLive;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm - AppSpacing.xxs,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: live.withValues(alpha: 0.12),
-        borderRadius: AppRadius.all(AppRadius.full),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: AppSpacing.xs,
-        children: [
-          const StatusDotIndicator(isBooted: true),
-          Text(
-            'LIVE',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: 8.5,
-              letterSpacing: 0.8,
-              color: live,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
