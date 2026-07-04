@@ -14,7 +14,13 @@ final class AvccStreamRenderer {
   web.CanvasRenderingContext2D? _ctx;
   web.VideoDecoder? _decoder;
   int _timestamp = 0;
+  bool _hasRenderedFrame = false;
+  bool _hasError = false;
   static const canvasId = 'simulator-avcc-canvas';
+
+  /// Whether a frame has actually painted since the last [initDecoder].".
+  bool get hasRenderedFrame => _hasRenderedFrame;
+  bool get hasError => _hasError;
 
   void _registerCanvasFactory() {
     _canvas =
@@ -45,6 +51,8 @@ final class AvccStreamRenderer {
   }
 
   void initDecoder() {
+    _hasRenderedFrame = false;
+    _hasError = false;
     final init = web.VideoDecoderInit(
       output: ((web.VideoFrame frame) {
         try {
@@ -54,6 +62,7 @@ final class AvccStreamRenderer {
         }
       }).toJS,
       error: ((JSAny e) {
+        _hasError = true;
         print('Decoder error: $e');
       }).toJS,
     );
@@ -70,6 +79,7 @@ final class AvccStreamRenderer {
       _ctx ??= _canvas!.getContext('2d')! as web.CanvasRenderingContext2D;
       if (_ctx?.isNull == true) return;
       _ctx!.drawImage(source, 0, 0, width, height);
+      _hasRenderedFrame = true;
     } catch (e) {}
   }
 
@@ -77,14 +87,18 @@ final class AvccStreamRenderer {
     final type = bytes[0];
     final payload = bytes.sublist(1);
     if (type == 1) {
-      _decoder?.configure(
-        web.VideoDecoderConfig(
-          codec: _avcCodecString(payload),
-          description: payload.toJS,
-          hardwareAcceleration: 'prefer-hardware',
-          optimizeForLatency: true,
-        ),
-      );
+      try {
+        _decoder?.configure(
+          web.VideoDecoderConfig(
+            codec: _avcCodecString(payload),
+            description: payload.toJS,
+            hardwareAcceleration: 'prefer-hardware',
+            optimizeForLatency: true,
+          ),
+        );
+      } catch (e) {
+        _hasError = true;
+      }
     } else if ((type == 2 || type == 3) && _decoder?.state == 'configured') {
       try {
         final chunk = web.EncodedVideoChunk(

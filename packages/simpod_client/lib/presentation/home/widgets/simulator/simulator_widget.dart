@@ -193,19 +193,25 @@ class _SimulatorWidgetState extends ConsumerState<SimulatorWidget> {
   }
 
   Widget _buildStreamWidget() {
-    if (widget.webSocketService.streamFormat == .avcc) {
-      return HtmlElementView(viewType: AvccStreamRenderer.canvasId);
-    }
-    return StreamBuilder(
-      stream: widget.webSocketService.mjpegStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.hasError) {
-          return const Center(child: CircularProgressIndicator.adaptive());
+    return StreamBuilder<StreamFormat>(
+      stream: widget.webSocketService.streamFormatStream,
+      initialData: widget.webSocketService.streamFormat,
+      builder: (context, formatSnapshot) {
+        if (formatSnapshot.data == StreamFormat.avcc) {
+          return HtmlElementView(viewType: AvccStreamRenderer.canvasId);
         }
-        return Image.memory(
-          snapshot.data! as Uint8List,
-          gaplessPlayback: true,
-          fit: BoxFit.contain,
+        return StreamBuilder(
+          stream: widget.webSocketService.mjpegStream,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.hasError) {
+              return const Center(child: CircularProgressIndicator.adaptive());
+            }
+            return Image.memory(
+              snapshot.data! as Uint8List,
+              gaplessPlayback: true,
+              fit: BoxFit.contain,
+            );
+          },
         );
       },
     );

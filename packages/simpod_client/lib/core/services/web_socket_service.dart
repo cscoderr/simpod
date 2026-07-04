@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:rxdart/rxdart.dart';
 import 'package:simpod_client/core/core.dart';
+import 'package:web/web.dart' as web;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum SocketMessageType { touch, pinch, button, orientation, key }
@@ -41,18 +42,29 @@ class StreamSettings {
 
 class WebSocketService {
   WebSocketService({AvccStreamRenderer? avccStreamHandler})
-    : _avccStreamHandler = avccStreamHandler ?? AvccStreamRenderer();
+    : _avccStreamHandler = avccStreamHandler ?? AvccStreamRenderer() {
+    _settings = StreamSettings(format: _loadFormatPref());
+    _avccFailed = web.window.localStorage.getItem(_avccFailedKey) == '1';
+  }
+
+  static const _formatKey = 'simpod.streamFormat';
+  static const _avccFailedKey = 'simpod.avccFailed';
+  static const _avccWatchdog = Duration(milliseconds: 2500);
 
   WebSocketChannel? _channel;
   StreamFormat _streamFormat = .mjpeg;
   StreamSettings _settings = const StreamSettings();
   String? _lastWsUrl;
   bool? _avccSupported;
+  bool _avccFailed = false;
+  Timer? _avccWatchdogTimer;
   final AvccStreamRenderer _avccStreamHandler;
   final StreamController<dynamic> _mjpegStreamController =
       StreamController.broadcast();
   final BehaviorSubject<dynamic> _accessiblityStreamController =
       BehaviorSubject();
+  final BehaviorSubject<StreamFormat> _formatController =
+      BehaviorSubject.seeded(.mjpeg);
 
   final BehaviorSubject<bool> _connectedController = BehaviorSubject.seeded(
     false,
@@ -64,19 +76,27 @@ class WebSocketService {
 
   Future<void> applySettings(StreamSettings next) async {
     _settings = next;
+    // A deliberate codec choice clears the remembered auto fallback so H.264 is
+    // retried; the choice itself is persisted for the next page load.
+    _avccFailed = false;
+    web.window.localStorage
+      ..setItem(_formatKey, next.format.name)
+      ..removeItem(_avccFailedKey);
     final url = _lastWsUrl;
     if (url != null) await connect(url);
   }
 
   Future<void> connect(String wsUrl) async {
     _lastWsUrl = wsUrl;
+    _avccWatchdogTimer?.cancel();
     // Browser codec support can't change within a session; probe once.
     final supported = _avccSupported ??= await _avccStreamHandler
         .isAvccSupported();
-    // Honor the user's codec choice, but never request H.264 the browser
-    // can't decode.
+    // Honor the user's codec choice, but never request H.264 the browser can't
+    // decode, and skip it under `auto` once it has failed this session.
     final wantsAvcc = switch (_settings.format) {
-      StreamFormatPreference.auto || StreamFormatPreference.avcc => supported,
+      StreamFormatPreference.auto => supported && !_avccFailed,
+      StreamFormatPreference.avcc => supported,
       StreamFormatPreference.mjpeg => false,
     };
     if (wantsAvcc) {
@@ -85,6 +105,7 @@ class WebSocketService {
     } else {
       _streamFormat = .mjpeg;
     }
+    _formatController.add(_streamFormat);
     await _channel?.sink.close();
     final channel = WebSocketChannel.connect(
       Uri.parse(
@@ -119,12 +140,42 @@ class WebSocketService {
         _connectedController.add(false);
       },
     );
+
+    if (_streamFormat == .avcc &&
+        _settings.format == StreamFormatPreference.auto) {
+      _armAvccFallback(wsUrl);
+    }
+  }
+
+  // Under `auto`, if H.264 is selected but nothing paints (or the decoder
+  // errors) within the watchdog window, remember the failure and reconnect as
+  // MJPEG so the stream is never left blank.
+  void _armAvccFallback(String wsUrl) {
+    _avccWatchdogTimer = Timer(_avccWatchdog, () {
+      if (_streamFormat != .avcc) return;
+      if (_avccStreamHandler.hasRenderedFrame && !_avccStreamHandler.hasError) {
+        return;
+      }
+      _avccFailed = true;
+      web.window.localStorage.setItem(_avccFailedKey, '1');
+      unawaited(connect(wsUrl));
+    });
+  }
+
+  StreamFormatPreference _loadFormatPref() {
+    final raw = web.window.localStorage.getItem(_formatKey);
+    for (final pref in StreamFormatPreference.values) {
+      if (pref.name == raw) return pref;
+    }
+    return StreamFormatPreference.auto;
   }
 
   Future<void> close() async {
+    _avccWatchdogTimer?.cancel();
     await _avccStreamHandler.close();
     await _mjpegStreamController.close();
     await _accessiblityStreamController.close();
+    await _formatController.close();
     await _connectedController.close();
     await _channel?.sink.close();
   }
@@ -193,11 +244,7 @@ class WebSocketService {
     try {
       await _channel?.ready;
     } on SocketException {
-      // Swallowed: sends against a dead socket are dropped and the
-      // connectionStream overlay handles surfacing the disconnect.
-    } on WebSocketChannelException {
-      // See above.
-    }
+    } on WebSocketChannelException {}
     _channel?.sink.add(jsonEncode(payload));
   }
 
@@ -212,6 +259,7 @@ class WebSocketService {
   }
 
   StreamFormat get streamFormat => _streamFormat;
+  Stream<StreamFormat> get streamFormatStream => _formatController.stream;
   Stream<dynamic> get mjpegStream => _mjpegStreamController.stream;
   Stream<dynamic> get accessibilityStream =>
       _accessiblityStreamController.stream;
