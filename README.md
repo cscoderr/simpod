@@ -1,172 +1,260 @@
+# Simpod
 
-<p align="center">
-  <h1 align="center">Simpod</h1>
+> Stream and control a running **iOS Simulator** from your browser, terminal, or AI coding agent.
 
-  <p align="center">
-    Simpod streams a booted <b>iOS Simulator</b> to the browser and drive it — from your IDE, an
-AI agent (Claude Code, Cursor, Codex), or the <code>simpod</code> CLI.
-  </p>
-</p>
+Simpod lets you remotely control a booted iOS Simulator from your browser, IDE, or AI agent such as **Claude Code**, **Cursor**, or **Codex**. It provides a low-latency live stream, full touch input, accessibility inspection, simulator controls, and a simple CLI—all without Xcode plugins or app instrumentation.
 
-<hr/>
+---
 
 ![Codex Screenshot](./assets/codex-screenshot.png)
 
-## Install
+## Features
 
-Requires macOS 14+, Xcode command-line tools (`xcrun simctl`), and a booted
-simulator.
+- **Low-latency streaming** (up to 60 FPS) with H.264 and automatic MJPEG fallback
+- **Full simulator control**
+  - Tap
+  - Swipe
+  - Pinch
+  - Type
+  - Hardware buttons
+  - Rotation
+- **Accessibility inspection**
+  - Live accessibility tree
+  - Find elements by label
+  - Highlight UI elements in the browser
+- **Simulator controls**
+  - Light/Dark mode
+  - GPS simulation
+  - Status bar overrides
+  - Deep links
+  - Privacy permissions
+- Live simulator logs
+- Native device bezels from CoreSimulator
+- Browser access over localhost or LAN
+- Built-in **Agent Skill** for AI coding assistants
+
+---
+
+## Installation
+
+### Requirements
+
+- macOS 14+
+- Xcode Command Line Tools (`xcrun simctl`)
+- A booted iOS Simulator
+
+Install using Dart:
 
 ```sh
 dart pub global activate simpod
-simpod
 ```
 
-The package embeds the native helper and the web dashboard, so no extra
-downloads are needed. Alternatively, build the self-contained `build/simpod`
-binary with `./build.sh`, or run from source (below).
+Then simply run:
 
 ```sh
 simpod
-# → Preview at http://127.0.0.1:5210
 ```
 
-Simpod spawns a small native Swift helper that captures the simulator's
-framebuffer (VideoToolbox H.264 / MJPEG), injects HID input, and reads the
-accessibility tree. A Dart CLI orchestrates the helpers and serves a Flutter web
-dashboard on top. It works with any booted simulator — no Xcode plugin, no
-in-app instrumentation.
+Open:
 
-## Features
+```
+http://127.0.0.1:5210
+```
 
-- Low-latency 60 FPS stream in the browser (H.264/AVCC with an MJPEG fallback).
-- Full control: tap, swipe, pinch, type, hardware buttons, rotation.
-- Accessibility inspection — read the live AX tree to find elements by label, and
-  an in-browser overlay that highlights element frames.
-- Device controls: light/dark appearance, mock GPS, status-bar overrides, deep
-  links, privacy permissions.
-- Live simulator system logs forwarded to the browser (and to agents).
-- Device bezels/chrome rendered from CoreSimulator assets.
-- Loopback is auto-trusted; LAN devices pair with a printed QR / token.
-- An **Agent Skill** that teaches AI agents the stable simpod workflow.
+That's it.
 
+The package already includes:
+
+- Native Swift helper
+- Flutter web dashboard
+
+No additional downloads are required.
+
+Alternatively, build the standalone binary:
+
+```sh
+./build.sh
+```
+
+---
+
+## How It Works
+
+Simpod launches a lightweight native Swift helper for each simulator.
+
+The helper:
+
+- Captures the simulator framebuffer
+- Streams H.264 or MJPEG video
+- Injects touch and keyboard events
+- Reads the accessibility tree
+- Exposes HTTP and WebSocket APIs
+
+The Dart CLI manages helper processes and serves the Flutter web dashboard.
+
+Unlike many simulator automation tools, Simpod works with **any booted simulator**—no Xcode plugin or app instrumentation required.
+
+```text
+┌──────────────┐  capture + HID   ┌─────────────────────┐   HTTP / WS   ┌─────────┐
+│ iOS Simulator│ ◀──────────────▶ │ simpod-helper-bin   │ ◀────────────▶ │ Browser │
+└──────────────┘                  └──────────▲──────────┘                └─────────┘
+                                             │
+                                             │
+                                   spawns & manages
+                                             │
+                                   ┌─────────┴─────────┐
+                                   │   simpod CLI      │
+                                   │ Preview Server    │
+                                   └───────────────────┘
+```
+
+---
 
 ## CLI
 
-```
-simpod [device...]                 Start the stream + web preview (default :5210)
-simpod --detach -q                 Spawn in the background, print JSON, return
-simpod --no-preview                Stream in the terminal, no web UI
-simpod --list [-q]                 List running sessions
-simpod --kill [-d <udid>]          Stop all sessions (or one device)
+```text
+simpod [device...]                 Start preview
+simpod --detach -q                 Run in background
+simpod --no-preview                Stream without browser
+simpod --list                      List sessions
+simpod --kill                      Stop sessions
 
-simpod tap <x> <y>                 Tap (normalized 0..1 coords)
-simpod gesture '<json>'            Multi-step touch/pinch sequence
-simpod type '<text>'               Type into the focused field (US keyboard)
-simpod button [name]               home | app_switcher | lock | side_button | volume_up | volume_down | siri
-simpod rotate <orientation>        portrait | portrait_upside_down | landscape_left | landscape_right
-simpod rotate-left | rotate-right  Quarter-turn helpers
+simpod tap <x> <y>
+simpod gesture '<json>'
+simpod type '<text>'
 
-simpod boot <udid> | shutdown      Lifecycle
-simpod appearance light|dark       Set appearance
-simpod open-url <url>              Open a deep link / https URL
-simpod location <lat> <lon>        Mock GPS
-simpod status-bar --battery <n> --time <hh:mm> | --clear
-simpod permissions <grant|revoke|reset> <service> [bundle]
-simpod describe [--point <x> <y>]  Dump the accessibility tree (JSON)
-simpod logs [--seconds <n>]        Tail the simulator system log
+simpod button [name]
+simpod rotate <orientation>
 
-Options:
-  -p, --port <port>   Preview server port (default 5210; helpers use 5400+)
-      --host <host>   Bind interface (0.0.0.0 exposes on the LAN)
-  -d, --device <udid> Target a specific simulator
-  -q, --quiet         JSON-only output
+simpod boot <udid>
+simpod shutdown
+
+simpod appearance light|dark
+simpod open-url <url>
+simpod location <lat> <lon>
+
+simpod status-bar ...
+simpod permissions ...
+simpod describe
+simpod logs
 ```
 
-### Examples
+Coordinates use normalized values between **0** and **1**, where `(0,0)` is the top-left corner.
+
+---
+
+## Examples
 
 ```sh
-simpod                                  # auto-detect a booted sim, open preview
-simpod "iPhone 16 Pro"                  # target a device by name
-simpod --detach -q                      # background server, returns JSON
+# Start preview
+simpod
 
-simpod tap 0.5 0.5                      # tap center
-simpod type "Hello, world!"             # type into the focused field
-simpod button home                      # go home
-simpod rotate landscape_left            # rotate
-simpod appearance dark                  # dark mode
-simpod open-url "myapp://checkout"      # deep link
-simpod describe | jq                    # inspect the UI
+# Run in background
+simpod --detach -q
 
-simpod --kill                           # stop everything
+# Tap the center
+simpod tap 0.5 0.5
+
+# Type text
+simpod type "Hello, world!"
+
+# Press Home
+simpod button home
+
+# Rotate device
+simpod rotate landscape_left
+
+# Enable Dark Mode
+simpod appearance dark
+
+# Open a deep link
+simpod open-url "myapp://checkout"
+
+# Inspect the UI
+simpod describe | jq
+
+# Stop all sessions
+simpod --kill
 ```
 
-Coordinates are normalized `0..1`, `(0,0)` top-left. Device resolution when you
-don't name one: explicit device → first booted → boot the first available.
+---
 
 ## Agent Skill
 
-An Agent Skill ships in
-[`skills/simpod`](https://github.com/cscoderr/simpod/blob/main/skills/simpod/SKILL.md).
-It teaches AI coding agents how to drive a simulator through the CLI — taps,
-gestures, hardware buttons, rotation, accessibility-driven taps, device controls,
-and handing the stream off to the host's preview pane. See the reference docs
-under
-[`skills/simpod/reference/`](https://github.com/cscoderr/simpod/tree/main/skills/simpod/reference)
-for gestures, buttons & rotation, end-to-end workflows, and the HTTP/WebSocket
-endpoints.
+Simpod includes an **Agent Skill** that teaches AI coding agents how to operate the simulator through the CLI.
 
-## How it works
+It supports:
 
-```
-┌──────────────┐  capture+HID  ┌─────────────────────┐  HTTP/WS  ┌─────────┐
-│ iOS Simulator│ ◀───────────▶ │ simpod-helper-bin    │ ◀──────▶ │ Browser │
-└──────────────┘  (Swift,      │ (one per device,     │   live   └─────────┘
-                  private API) │  :5400+)             │  stream
-                               └─────────▲───────────┘
-                                         │ spawns + proxies
-                               ┌─────────┴───────────┐
-                               │ simpod CLI / preview │  http://127.0.0.1:5210
-                               │ server (:5210)       │
-                               └─────────────────────┘
-```
+- Taps
+- Gestures
+- Typing
+- Hardware buttons
+- Accessibility-driven interactions
+- Simulator configuration
+- Browser handoff
 
-The browser connects **directly** to a helper's WebSocket (`wsUrl`) for the live
-stream and input; the CLI's preview server serves the dashboard and gates a JSON
-API. State (sessions, pid files) lives under `$TMPDIR/simpod/`.
+Documentation:
 
-## Packages
+- `skills/simpod`
+- `skills/simpod/reference`
 
-| Package | Lang | Role |
-|---|---|---|
-| `packages/native` | Swift 6 | `simpod-helper-bin`: frame capture/encode, HID injection, AX tree, bezel rendering, HTTP/WS server. One process per device. |
-| `packages/simpod` | Dart | The `simpod` CLI + preview server: spawns/tracks helpers, serves the dashboard, gates the HTTP API. |
-| `packages/simpod_client` | Flutter web | The dashboard: renders the stream, sends input over WebSocket, calls the API. |
-| `packages/simpod_core` | Dart | Shared models (`SimpodSession`, `DeviceInfo`, `AXNode`, `SimpodOrientation`, …). |
+---
+
+## Project Structure
+
+| Package | Language | Purpose |
+|----------|----------|---------|
+| `packages/native` | Swift | Simulator helper (video capture, input injection, accessibility, WebSocket server) |
+| `packages/simpod` | Dart | CLI, preview server, session management |
+| `packages/simpod_client` | Flutter Web | Browser dashboard |
+| `packages/simpod_core` | Dart | Shared models and protocol definitions |
+
+---
 
 ## Development
 
-Run from source (no released binary), iterating on each layer:
+Build the native helper:
 
 ```sh
-# 1. Build the native helper and stage it where the CLI loads it from
 swift build -c release --package-path packages/native
-cp -f packages/native/.build/release/simpod-helper-bin packages/simpod/lib/bin/
 
-# 2. Run the CLI / preview server (MUST run from the package root; boot a sim first)
-cd packages/simpod && dart pub get
-dart run bin/simpod.dart          # preview UI at http://127.0.0.1:5210
-
-# 3. Iterate on the web client (separate origin → pass the debug token)
-cd ../simpod_client
-flutter run -d chrome --web-port=8080 --dart-define=SIMPOD_TOKEN=<token-the-cli-printed>
+cp -f packages/native/.build/release/simpod-helper-bin \
+packages/simpod/lib/bin/
 ```
 
-`./build.sh` (repo root) runs the full release pipeline: swift build → copy bin →
-`flutter build web --wasm` → embed assets → `dart compile exe -o build/simpod`. The
-output embeds the helper + web build and self-extracts on first run, so it works
-from any directory.
+Run the CLI:
+
+```sh
+cd packages/simpod
+
+dart pub get
+
+dart run bin/simpod.dart
+```
+
+Run the web client:
+
+```sh
+cd ../simpod_client
+
+flutter run -d chrome
+```
+
+Build a release binary:
+
+```sh
+./build.sh
+```
+
+The build process:
+
+- Compiles the Swift helper
+- Builds the Flutter web app
+- Embeds all assets
+- Produces a standalone `simpod` executable
+
+---
 
 ## License
 
-See [`LICENSE`](LICENSE).
+See the [LICENSE](LICENSE) file.
