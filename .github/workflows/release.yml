@@ -1,0 +1,204 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to release"
+        required: true
+        type: choice
+        options:
+          - simpod
+      bump:
+        description: "Version bump (use current to publish the checked-in version without bumping)"
+        required: true
+        type: choice
+        default: prerelease
+        options:
+          - current
+          - prerelease
+          - patch
+          - minor
+          - major
+      dry-run:
+        description: "Skip commit, tag, push, and release; build only and print what would happen"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: simpod-release-${{ inputs.package }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release ${{ inputs.package }} (${{ inputs.bump }})
+    runs-on: macos-latest
+    steps:
+      - name: Harden the runner (audit egress)
+        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Compute version and tag
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          set -euo pipefail
+          PUBSPEC="packages/${PACKAGE}/pubspec.yaml"
+
+          CURRENT="$(grep '^version:' "$PUBSPEC" | head -1 | sed -E 's/^version:[[:space:]]*//')"
+          echo "Current version: $CURRENT"
+
+          # Split into core (x.y.z) and optional prerelease (-pre.N) parts.
+          CORE="${CURRENT%%-*}"
+          PRE=""
+          if [[ "$CURRENT" == *-* ]]; then PRE="${CURRENT#*-}"; fi
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CORE"
+
+          case "$BUMP" in
+            current)
+              NEW_VERSION="$CURRENT"
+              ;;
+            major)
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+              ;;
+            prerelease)
+              if [[ "$PRE" =~ ^pre\.([0-9]+)$ ]]; then
+                # Already a prerelease: bump the prerelease counter.
+                NEW_VERSION="${CORE}-pre.$(( ${BASH_REMATCH[1]} + 1 ))"
+              else
+                # Stable version: start a prerelease off the next patch.
+                NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))-pre.0"
+              fi
+              ;;
+            *)
+              echo "Unknown bump: $BUMP" >&2
+              exit 1
+              ;;
+          esac
+
+          TAG="v${NEW_VERSION}"
+          echo "New version: $NEW_VERSION (tag $TAG)"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+
+          # Apply the bump to the working tree so the build embeds the new
+          # version. The commit/tag/push happens in a later step (skipped on
+          # dry-run), so a dry-run still builds against the bumped version.
+          if [[ "$BUMP" != "current" ]]; then
+            sed -i '' -E "s/^version:.*/version: ${NEW_VERSION}/" "$PUBSPEC"
+          fi
+
+      - name: Commit, tag, and push version bump
+        if: ${{ !inputs.dry-run }}
+        env:
+          BUMP: ${{ inputs.bump }}
+          PACKAGE: ${{ inputs.package }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ "$BUMP" != "current" ]]; then
+            git add "packages/${PACKAGE}/pubspec.yaml"
+            git commit -m "chore(release): ${PACKAGE}@${NEW_VERSION}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Resolve workspace dependencies
+        run: flutter pub get
+
+      - name: Build self-contained binary
+        run: ./build.sh
+
+      - name: Verify binary is a macOS arm64 executable
+        run: |
+          set -euo pipefail
+          test -x build/simpod
+          file build/simpod
+          file build/simpod | grep -q 'arm64'
+
+      - name: Package tarball
+        id: package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          TARBALL="simpod-macos-arm64.tar.gz"
+          tar -czf "$TARBALL" -C build simpod
+          SHA="$(shasum -a 256 "$TARBALL" | awk '{print $1}')"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Dry-run summary of skipped release
+        if: ${{ inputs.dry-run }}
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          TARBALL: ${{ steps.package.outputs.tarball }}
+          SHA: ${{ steps.package.outputs.sha256 }}
+        run: |
+          echo "[dry-run] would commit + tag ${TAG}, push it, and create a GitHub release"
+          echo "[dry-run] would attach ${TARBALL} (sha256 ${SHA})"
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry-run }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          files: ${{ steps.package.outputs.tarball }}
+          generate_release_notes: true
+          prerelease: ${{ inputs.bump == 'prerelease' }}
+
+      - name: Summary
+        if: always()
+        env:
+          PKG: ${{ inputs.package }}
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.package.outputs.sha256 }}
+          DRY: ${{ inputs.dry-run }}
+        run: |
+          {
+            echo "### simpod release"
+            echo ""
+            echo "- Package: \`$PKG\`"
+            echo "- Bump: \`$BUMP\`"
+            echo "- Version: \`$VERSION\`"
+            echo "- Tag: \`$TAG\`"
+            echo "- Tarball sha256: \`$SHA\`"
+            echo "- Dry-run: \`$DRY\`"
+          } >> "$GITHUB_STEP_SUMMARY"

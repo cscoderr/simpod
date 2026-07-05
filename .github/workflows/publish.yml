@@ -1,0 +1,84 @@
+name: Publish Simpod package to pub.dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to release"
+        required: false
+        default: simpod
+      dry-run:
+        description: "Dry run mode (validates packages without publishing)"
+        required: false
+        type: boolean
+        default: false
+      sleep-time:
+        description: "Sleep time between publishing packages (in seconds)"
+        required: false
+        default: '5'
+  push:
+    tags:
+      # Matches v-prefixed tags created by release.yml, e.g. `v2.9.1`,
+      # `v3.0.0-alpha.1`, `v3.0.0-rc.1`.
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+concurrency:
+  group: simpod-publish
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+
+jobs:
+  publish:
+    permissions:
+      id-token: write
+    name: Publish ${{ inputs.package }} to pub.dev
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve workspace dependencies
+        run: flutter pub get
+
+      - name: Build native helper (simpod-helper-bin)
+        run: swift build -c release --package-path packages/native
+
+      - name: Copy helper into the CLI
+        run: |
+          mkdir -p packages/simpod/lib/bin
+          cp -f packages/native/.build/release/simpod-helper-bin \
+            packages/simpod/lib/bin/simpod-helper-bin
+
+      - name: Build Flutter web (wasm)
+        working-directory: packages/simpod_client
+        run: flutter build web --wasm --release
+
+      # Bakes the helper binary + Flutter web build into
+      # lib/src/gen/embedded_assets.g.dart. Left in place (not restored to the
+      # stub) so `dart pub publish` ships the real payload.
+      - name: Embed web + helper into the CLI
+        working-directory: packages/simpod
+        run: |
+          dart pub get
+          dart run tool/embed_assets.dart
+
+      - name: Validate package
+        working-directory: packages/simpod
+        run: dart pub publish --dry-run
+
+      - name: Publish package
+        if: ${{ !inputs.dry-run }}
+        working-directory: packages/simpod
+        env:
+          SLEEP: ${{ inputs.sleep-time }}
+        run: |
+          echo "Sleeping for ${SLEEP:-5} seconds before publishing..."
+          sleep "${SLEEP:-5}"
+          dart pub publish --force
