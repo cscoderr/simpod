@@ -1,8 +1,8 @@
 # Simpod
 
-> Stream and control a running **iOS Simulator** from your browser, terminal, or AI coding agent.
+> Stream and control an **iOS Simulator** from your browser, terminal, or AI coding agent.
 
-Simpod lets you remotely control a booted iOS Simulator from your browser, IDE, or AI agent such as **Claude Code**, **Cursor**, or **Codex**. It provides a low-latency live stream, full touch input, accessibility inspection, simulator controls, and a simple CLI—all without Xcode plugins or app instrumentation.
+Simpod lets you remotely control an iOS Simulator from your browser, IDE, or AI agent such as **Claude Code**, **Cursor**, or **Codex**. It provides a low-latency live stream, full touch input, accessibility inspection, simulator controls, and a simple CLI—all without Xcode plugins or app instrumentation.
 
 ---
 
